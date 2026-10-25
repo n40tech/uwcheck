@@ -130,7 +130,19 @@
   .pill.update .dot { background: var(--accent); }
   /* Logo purple is too dark to read as text on the dark background; the dot carries the colour. */
   :root[data-theme="dark"] .pill.update { color: var(--text); }
-  .synced { margin-left: 4px; }
+  .sources .slot { display: contents; }
+  /* "Synced 3 min ago" is also the sync button. Its arrow shows on hover, while syncing, and always on touch screens. */
+  .synced {
+    display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: inherit;
+    font-size: inherit; padding: 3px 8px; border-radius: 999px;
+  }
+  .synced:hover { background: var(--surface-2); color: var(--text); }
+  .synced .spin { width: 13px; height: 13px; flex: none; opacity: 0; transition: opacity .15s; }
+  .sources:hover .synced .spin, .synced:focus-visible .spin, .synced:disabled .spin { opacity: 1; }
+  .synced:disabled { cursor: default; background: none; color: inherit; }
+  .synced:disabled .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (hover: none) { .synced .spin { opacity: 1; } }
   .search {
     border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-ctl);
     padding: 6px 10px; width: 220px; line-height: 1.25;
@@ -219,8 +231,8 @@
     text-align: left; padding: 1px 6px; border-radius: 6px;
   }
   .more:hover { background: var(--surface-2); color: var(--text); }
-  /* Week view: one tall row, full titles, every item visible. The row grows to fit the busiest day,
-     so the whole week scrolls together rather than each day on its own. */
+  /* Week and two-week views: tall rows, full titles, every item visible. Each row grows to fit its
+     busiest day, so the weeks scroll together rather than each day on its own. */
   .grid.week { grid-auto-rows: minmax(min-content, 1fr); }
   .grid.week .day { gap: 4px; }
   .chip.full { align-items: flex-start; padding: 3px 0 3px 3px; line-height: 1.35; }
@@ -419,7 +431,7 @@
   .toast button { pointer-events: auto; border: 0; background: none; color: inherit; font-weight: 700; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition: none !important; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
   }
 
   @media (max-width: 1000px) {
@@ -465,10 +477,14 @@
 <body>
 <header>
   <h1><img src="/icon.svg" alt="">UWCheck</h1>
-  <div class="sources" id="sources"></div>
+  <!-- Syncing is automatic; hovering here shows the arrow that syncs now. -->
+  <div class="sources">
+    <span class="slot" id="sources"></span>
+    <button class="synced" id="syncBtn" title="Sync now" hidden><span id="syncText"></span><svg class="spin" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <span class="slot" id="updateSlot"></span>
+  </div>
   <div class="spacer"></div>
   <input class="search" id="search" type="search" placeholder="Search  ( / )" aria-label="Search deadlines" autocomplete="off">
-  <button class="btn" id="syncBtn" title="Fetch the latest deadlines">Sync</button>
   <div class="menu-wrap">
     <button class="btn ghost" id="optionsBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="optMenu">Options <span class="caret-d" aria-hidden="true">▾</span></button>
     <div class="menu" id="optMenu" role="menu" aria-label="Options" hidden>
@@ -491,6 +507,7 @@
       <div class="spacer"></div>
       <div class="seg" role="group" aria-label="Calendar view">
         <button id="viewMonth" title="Month view (M)">Month</button>
+        <button id="viewTwoWeek" title="This week and next (2)">2 Week</button>
         <button id="viewWeek" title="Week view (W)">Week</button>
       </div>
     </div>
@@ -635,9 +652,9 @@
       <div class="opt-pane" role="tabpanel" id="pane-keys" aria-labelledby="tab-keys" hidden>
         <h3 class="grp">Calendar</h3>
         <dl class="keys">
-          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous or next month (or week)</dd>
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous or next month (or weeks)</dd>
           <dt><kbd>T</kbd></dt><dd>Jump to today</dd>
-          <dt><kbd>M</kbd> <kbd>W</kbd></dt><dd>Month or week view</dd>
+          <dt><kbd>M</kbd> <kbd>2</kbd> <kbd>W</kbd></dt><dd>Month, two-week or week view</dd>
         </dl>
         <h3 class="grp">To-do list</h3>
         <dl class="keys">
@@ -807,6 +824,8 @@ function render() {
 }
 let savingColors = false;
 
+const syncErrors = () => Object.values(data.sources).filter((s) => s.status === 'error');
+
 function renderSources() {
   const box = $('sources');
   box.replaceChildren();
@@ -827,12 +846,12 @@ function renderSources() {
     b.onclick = () => (cls === 'ok' ? toast(tip) : openOptions());
     box.append(b);
   }
-  if (data.lastSync) {
-    const t = document.createElement('span');
-    t.className = 'synced';
-    t.textContent = `Synced ${ago(data.lastSync)}`;
-    box.append(t);
-  }
+  // Nothing to sync until a source is connected.
+  $('syncBtn').hidden = !isConnected();
+  $('syncBtn').disabled = syncing;
+  $('syncText').textContent = syncing ? 'Syncing…' : data.lastSync ? `Synced ${ago(data.lastSync)}` : 'Sync now';
+  const slot = $('updateSlot');
+  slot.replaceChildren();
   if (data.update) {
     const { latest, oneClick } = data.update;
     const u = document.createElement('button');
@@ -842,7 +861,7 @@ function renderSources() {
     u.append(updating ? 'Updating…' : `Update to ${latest}`);
     u.disabled = updating;
     u.onclick = startUpdate;
-    box.append(u);
+    slot.append(u);
   }
 }
 
@@ -928,21 +947,27 @@ function chip(it, full, onOpen = (el) => showPop(it, el)) {
 const DAY_MS = 86400000;
 const keyOf = (date) => date.toISOString().slice(0, 10);
 
+// How many weeks the week views show: 'week' one, 'twoweek' this one and the next. 0 for month.
+const viewWeeks = () => ({ week: 1, twoweek: 2 })[ui.calView] || 0;
+
 function renderCalendar() {
-  const week = ui.calView === 'week';
+  const weeks = viewWeeks();
+  const week = weeks > 0; // week views share the tall rows and full titles
   $('viewMonth').setAttribute('aria-pressed', !week);
-  $('viewWeek').setAttribute('aria-pressed', week);
-  $('prev').title = week ? 'Previous week (←)' : 'Previous month (←)';
-  $('next').title = week ? 'Next week (→)' : 'Next month (→)';
+  $('viewTwoWeek').setAttribute('aria-pressed', weeks === 2);
+  $('viewWeek').setAttribute('aria-pressed', weeks === 1);
+  const step = weeks === 2 ? '2 weeks' : week ? 'week' : 'month';
+  $('prev').title = `Previous ${step} (←)`;
+  $('next').title = `Next ${step} (→)`;
   const a = ui.view;
   const ay = +a.slice(0, 4), am = +a.slice(5, 7) - 1, ad = +a.slice(8, 10);
   let start, cells;
   if (week) {
     const d = new Date(Date.UTC(ay, am, ad));
     start = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * DAY_MS); // Monday first
-    cells = 7;
+    cells = 7 * weeks;
     const short = { day: 'numeric', month: 'short' };
-    $('monthLabel').textContent = `${fmtDay(keyOf(start), short)} - ${fmtDay(keyOf(new Date(start.getTime() + 6 * DAY_MS)), { ...short, year: 'numeric' })}`;
+    $('monthLabel').textContent = `${fmtDay(keyOf(start), short)} - ${fmtDay(keyOf(new Date(start.getTime() + (cells - 1) * DAY_MS)), { ...short, year: 'numeric' })}`;
   } else {
     const first = new Date(Date.UTC(ay, am, 1));
     const offset = (first.getUTCDay() + 6) % 7; // Monday first
@@ -1006,7 +1031,7 @@ function renderCalendar() {
 // Month cells have a fixed height. Hide the chips that don't fit and say how many are left,
 // rather than letting them get cut off silently.
 function fitDays() {
-  if (ui.calView === 'week') return;
+  if (viewWeeks()) return;
   for (const cell of $('grid').querySelectorAll('.day')) {
     const more = cell.querySelector('.more');
     if (!more) continue;
@@ -1557,27 +1582,29 @@ function toast(msg, ms = 2600, undo) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
+let syncing = false;
 async function sync() {
-  const btn = $('syncBtn');
-  btn.disabled = true;
-  btn.textContent = 'Syncing…';
+  if (!isConnected()) return openOptions();
+  syncing = true;
+  renderSources();
   try {
     data = await api('/api/sync', {});
+    syncing = false;
     render();
-    const errs = Object.values(data.sources).filter((s) => s.status === 'error');
-    toast(errs.length ? `Synced with ${errs.length} problem${errs.length > 1 ? 's' : ''}; hover the red dots for details` : 'Up to date');
+    const errs = syncErrors();
+    toast(errs.length ? errs.map((s) => `${s.label} didn't sync: ${s.error}`).join(' · ') : 'Up to date', errs.length ? 8000 : 2600);
   } catch (e) {
     toast('Sync failed: ' + e.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Sync';
+    syncing = false;
+    renderSources();
   }
 }
-// Step the calendar by one month or one week, depending on the view.
+// Step the calendar by what it shows: a month, a week or two weeks.
 function shift(n) {
   const a = ui.view;
-  const d = ui.calView === 'week'
-    ? new Date(Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10) + 7 * n))
+  const d = viewWeeks()
+    ? new Date(Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10) + 7 * viewWeeks() * n))
     : new Date(Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1 + n, 1));
   ui.view = keyOf(d);
   hidePop();
@@ -1585,9 +1612,10 @@ function shift(n) {
 }
 function setCalView(v) {
   if (ui.calView === v) return;
-  // Switching from month to week lands on today if it's in that month, otherwise the 1st.
-  if (v === 'week' && ui.view.slice(0, 7) === todayKey().slice(0, 7)) ui.view = todayKey();
-  else if (v === 'week') ui.view = ui.view.slice(0, 8) + '01';
+  // Switching from month to a week view lands on today if it's in that month, otherwise the 1st.
+  if (v !== 'month' && ui.calView === 'month') {
+    ui.view = ui.view.slice(0, 7) === todayKey().slice(0, 7) ? todayKey() : ui.view.slice(0, 8) + '01';
+  }
   ui.calView = v;
   saveUi();
   hidePop();
@@ -1597,6 +1625,7 @@ function setCalView(v) {
 $('prev').onclick = () => shift(-1);
 $('next').onclick = () => shift(1);
 $('viewMonth').onclick = () => setCalView('month');
+$('viewTwoWeek').onclick = () => setCalView('twoweek');
 $('viewWeek').onclick = () => setCalView('week');
 $('todayBtn').onclick = () => { ui.view = null; render(); };
 $('syncBtn').onclick = sync;
@@ -1642,6 +1671,7 @@ document.addEventListener('keydown', (e) => {
   else if (key === 'ArrowLeft') shift(-1);
   else if (key === 'ArrowRight') shift(1);
   else if (key === 'm') setCalView('month');
+  else if (key === '2') setCalView('twoweek');
   else if (key === 'w') setCalView('week');
   else if (key === 't') { ui.view = null; render(); }
   else if (key === 'j') moveFocus(1);
@@ -1706,9 +1736,13 @@ $('sRemind').onchange = async (e) => {
 };
 // Coming back to the tab syncs if the last sync is over 2 minutes old, so work you just
 // finished (say, an Ed lesson) shows as done. Otherwise it just picks up background syncs.
+// The header says "Syncing…" meanwhile, the same as for a sync you start.
 window.addEventListener('focus', () => {
-  const stale = isConnected() && Date.now() - new Date(data.lastSync || 0) > 2 * 60 * 1000;
-  (stale ? api('/api/sync', {}) : Promise.resolve()).then(load).catch(() => {});
+  const stale = !syncing && isConnected() && Date.now() - new Date(data.lastSync || 0) > 2 * 60 * 1000;
+  if (stale) { syncing = true; renderSources(); }
+  (stale ? api('/api/sync', {}) : Promise.resolve())
+    .finally(() => { if (stale) { syncing = false; renderSources(); } })
+    .then(load).catch(() => {});
 });
 setInterval(() => load(true).catch(() => {}), 5 * 60 * 1000);
 
