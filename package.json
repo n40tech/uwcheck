@@ -4,13 +4,13 @@
   "description": "One calendar and to-do list for UW Canvas, Ed and CSE course-website deadlines.",
   "author": "N473 RCL0U",
   "license": "MIT",
-  "homepage": "https://github.com/n473CL0/uwcheck#readme",
+  "homepage": "https://github.com/n40tech/uwcheck#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/n473CL0/uwcheck.git"
+    "url": "git+https://github.com/n40tech/uwcheck.git"
   },
   "bugs": {
-    "url": "https://github.com/n473CL0/uwcheck/issues"
+    "url": "https://github.com/n40tech/uwcheck/issues"
   },
   "keywords": [
     "uw",
