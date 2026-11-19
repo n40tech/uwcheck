@@ -2,14 +2,14 @@
 
 Thanks for helping. UWCheck is for **UW students** for now, so new data sources should be tools UW courses actually use.
 
-The most useful contribution is a **new data source**: another place UW courses post deadlines. Check the [`new source`](https://github.com/n473CL0/uwcheck/labels/new%20source) issues first, or open one to say what you're building.
+The most useful contribution is a **new data source**: another place UW courses post deadlines. Check the [`new source`](https://github.com/n40tech/uwcheck/labels/new%20source) issues first, or open one to say what you're building.
 
 ## Run it from source
 
 You need Node.js 18 or newer. There's nothing to install.
 
 ```sh
-git clone https://github.com/n473CL0/uwcheck.git
+git clone https://github.com/n40tech/uwcheck.git
 cd uwcheck
 npm test
 ```

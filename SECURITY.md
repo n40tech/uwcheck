@@ -4,7 +4,7 @@ UWCheck stores your Canvas feed URL and Ed API token on your computer, so securi
 
 ## Reporting a problem
 
-Please **don't open a public issue**. Report it privately through [GitHub's private vulnerability reporting](https://github.com/n473CL0/uwcheck/security/advisories/new). You'll get a reply within a week.
+Please **don't open a public issue**. Report it privately through [GitHub's private vulnerability reporting](https://github.com/n40tech/uwcheck/security/advisories/new). You'll get a reply within a week.
 
 Things worth reporting:
 

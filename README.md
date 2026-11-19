@@ -8,7 +8,7 @@
   <b>One calendar and to-do list for every UW deadline: Canvas, Ed and CSE course websites.</b>
 </p>
 
-<p align="center"><a href="https://n473cl0.github.io/uwcheck/">n473cl0.github.io/uwcheck</a></p>
+<p align="center"><a href="https://n40tech.github.io/uwcheck/">n40tech.github.io/uwcheck</a></p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
@@ -67,7 +67,7 @@ Everything runs on your computer and listens only on `127.0.0.1`. Your Canvas fe
 ## Running from source
 
 ```sh
-git clone https://github.com/n473CL0/uwcheck.git
+git clone https://github.com/n40tech/uwcheck.git
 cd uwcheck
 npm start
 ```
